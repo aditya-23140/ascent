@@ -9,7 +9,6 @@ import {
   Flame,
   Trophy,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 
 interface StatsGridProps {
   user: User;
@@ -21,37 +20,55 @@ export default function StatsGrid({ user }: StatsGridProps) {
       label: "Current Level",
       value: user.level,
       icon: BarChart3,
-      color: "text-purple-400",
+      bgColor: "bg-violet-500/10",
+      borderColor: "border-violet-500/20",
+      iconColor: "text-violet-400",
+      valueColor: "text-violet-400",
     },
     {
       label: "Total XP",
-      value: user.totalXP,
+      value: user.totalXP.toLocaleString(),
       icon: Zap,
-      color: "text-orange-400",
+      bgColor: "bg-amber-500/10",
+      borderColor: "border-amber-500/20",
+      iconColor: "text-amber-400",
+      valueColor: "text-amber-400",
     },
     {
       label: "Tasks Completed",
       value: user.tasksCompleted,
       icon: CheckCircle2,
-      color: "text-green-400",
+      bgColor: "bg-emerald-500/10",
+      borderColor: "border-emerald-500/20",
+      iconColor: "text-emerald-400",
+      valueColor: "text-emerald-400",
     },
     {
       label: "Pomodoro Sessions",
       value: user.sessionsCompleted,
       icon: Clock,
-      color: "text-purple-400",
+      bgColor: "bg-sky-500/10",
+      borderColor: "border-sky-500/20",
+      iconColor: "text-sky-400",
+      valueColor: "text-sky-400",
     },
     {
       label: "Current Streak",
       value: user.currentStreak,
       icon: Flame,
-      color: "text-orange-400",
+      bgColor: "bg-orange-500/10",
+      borderColor: "border-orange-500/20",
+      iconColor: "text-orange-400",
+      valueColor: "text-orange-400",
     },
     {
       label: "Longest Streak",
       value: user.longestStreak,
       icon: Trophy,
-      color: "text-green-400",
+      bgColor: "bg-rose-500/10",
+      borderColor: "border-rose-500/20",
+      iconColor: "text-rose-400",
+      valueColor: "text-rose-400",
     },
   ];
 
@@ -60,20 +77,30 @@ export default function StatsGrid({ user }: StatsGridProps) {
       {stats.map((stat, idx) => {
         const Icon = stat.icon;
         return (
-          <Card
+          <div
             key={idx}
-            className="border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-black to-orange-500/5 hover:border-purple-500/50 transition-colors"
+            className={`bg-card border ${
+              stat.borderColor
+            } rounded-2xl p-5 ${stat.bgColor.replace("/10", "/5")} hover:${
+              stat.bgColor
+            } transition-all`}
           >
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-2">{stat.label}</p>
-                  <p className="text-3xl font-bold text-white">{stat.value}</p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <Icon className={`w-4 h-4 ${stat.iconColor}`} />
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {stat.label}
+                  </span>
                 </div>
-                <Icon className={`${stat.color} w-8 h-8 opacity-60`} />
+                <p className={`text-3xl font-bold ${stat.valueColor}`}>
+                  {stat.value}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

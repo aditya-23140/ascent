@@ -43,10 +43,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="font-sans antialiased">
+        {" "}
         <AppProvider>
           <div className="flex h-screen bg-background">
             <Sidebar />
-            <main className="flex-1 overflow-auto ml-20">{children}</main>
+            <main className="flex-1 overflow-auto ml-14">{children}</main>
           </div>
         </AppProvider>
       </body>

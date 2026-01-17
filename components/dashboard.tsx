@@ -5,6 +5,7 @@ import StatsOverview from "./dashboard/stats-overview";
 import RecentActivity from "./dashboard/recent-activity";
 import StreakDisplay from "./dashboard/streak-display";
 import QuickStats from "./dashboard/quick-stats";
+import { Sparkles } from "lucide-react";
 
 export default function Dashboard() {
   const { getCurrentUser } = useAppState();
@@ -14,13 +15,20 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">
-          Welcome back, {user.name}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Track your progress and dominate the leaderboard
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <Sparkles className="w-5 h-5 text-emerald-400" />
+            </div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Welcome back, {user.name}
+            </h1>
+          </div>
+          <p className="text-muted-foreground">
+            Track your progress and dominate the leaderboard
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

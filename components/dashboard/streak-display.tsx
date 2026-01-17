@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppState } from "@/context/app-context";
+import { Flame, Trophy } from "lucide-react";
 
 export default function StreakDisplay() {
   const { getCurrentUser } = useAppState();
@@ -9,32 +10,34 @@ export default function StreakDisplay() {
   if (!user) return null;
 
   return (
-    <div className="card">
-      <h2 className="text-lg font-semibold text-foreground mb-4">
-        Streak Status
-      </h2>
-      <div className="space-y-4">
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
-              Current Streak
-            </span>
-            <span className="text-3xl font-bold text-accent">
-              {user.currentStreak}
-            </span>
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-border bg-white/[0.02]">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-500/10">
+            <Flame className="w-5 h-5 text-amber-400" />
           </div>
-          <p className="text-xs text-muted-foreground">🔥 days in a row</p>
+          <h2 className="font-semibold text-foreground">Streak Status</h2>
         </div>
-        <div className="border-t border-border pt-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-muted-foreground">
-              Longest Streak
-            </span>
-            <span className="text-2xl font-bold text-foreground">
-              {user.longestStreak}
-            </span>
+      </div>
+      <div className="p-6 space-y-6">
+        <div className="text-center p-6 bg-gradient-to-br from-amber-500/10 to-orange-500/5 rounded-xl border border-amber-500/20">
+          <p className="text-6xl font-bold text-amber-400">
+            {user.currentStreak}
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">🔥 days in a row</p>
+        </div>
+        <div className="p-4 bg-white/[0.02] rounded-xl border border-border">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10">
+              <Trophy className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">Longest Streak</p>
+              <p className="text-2xl font-bold text-foreground">
+                {user.longestStreak} days
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">your personal best</p>
         </div>
       </div>
     </div>

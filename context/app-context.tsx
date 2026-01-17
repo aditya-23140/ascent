@@ -8,6 +8,7 @@ export interface SubTask {
   id: string;
   title: string;
   completed: boolean;
+  estimatedMinutes: number;
 }
 
 export interface Task {
@@ -95,7 +96,6 @@ interface AppContextType extends AppState {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
 
 export const ICON_MAP = {
   CheckCircle2,
@@ -451,9 +451,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       estimatedMinutes: 120,
       sessionsCompleted: 0,
       subTasks: [
-        { id: "st_1", title: "Create wireframes", completed: false },
-        { id: "st_2", title: "Design mockups", completed: false },
-        { id: "st_3", title: "Gather feedback", completed: false },
+        {
+          id: "st_1",
+          title: "Create wireframes",
+          completed: false,
+          estimatedMinutes: 45,
+        },
+        {
+          id: "st_2",
+          title: "Design mockups",
+          completed: false,
+          estimatedMinutes: 60,
+        },
+        {
+          id: "st_3",
+          title: "Gather feedback",
+          completed: false,
+          estimatedMinutes: 30,
+        },
       ],
       createdAt: new Date().toISOString(),
     };
