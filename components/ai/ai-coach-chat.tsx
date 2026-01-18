@@ -8,6 +8,7 @@ import {
   detectEmotionalState,
   getFallbackResponse,
 } from "@/lib/ai-coach";
+import { getCoachResponse } from "@/lib/gemini-service";
 
 interface AICoachChatProps {
   isOpen: boolean;
@@ -74,7 +75,6 @@ export default function AICoachChat({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -87,12 +87,35 @@ export default function AICoachChat({
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response with fallback
-    // In production, this would call an actual LLM API
-    setTimeout(() => {
+    try {
+      // Build conversation history for context (last 10 messages)
+      const conversationHistory = messages.slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      // Call Gemini API
+      const response = await getCoachResponse(
+        currentInput,
+        detectedEmotion,
+        conversationHistory,
+        taskContext
+      );
+
+      const coachResponse: CoachMessage = {
+        id: `coach_${Date.now()}`,
+        role: "coach",
+        content: response,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, coachResponse]);
+    } catch (error) {
+      console.error("AI response error:", error);
+      // Fallback to pre-built responses
       const coachResponse: CoachMessage = {
         id: `coach_${Date.now()}`,
         role: "coach",
@@ -100,8 +123,9 @@ export default function AICoachChat({
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, coachResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

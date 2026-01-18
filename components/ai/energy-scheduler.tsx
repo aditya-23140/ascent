@@ -18,6 +18,8 @@ import {
   Lightbulb,
   RefreshCcw,
   Settings,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   type EnergyProfile,
@@ -30,6 +32,7 @@ import {
   getEnergyRecoverySuggestions,
 } from "@/lib/energy-scheduler";
 import { useAppState } from "@/context/app-context";
+import { getSchedulingSuggestions } from "@/lib/gemini-service";
 
 interface EnergySchedulerProps {
   isOpen: boolean;
@@ -47,6 +50,8 @@ export default function EnergyScheduler({
     ...DEFAULT_ENERGY_PROFILE,
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   // Convert user tasks to schedulable format
   const schedulableTasks: SchedulableTask[] = useMemo(() => {
@@ -64,6 +69,41 @@ export default function EnergyScheduler({
     }
     return null;
   }, [schedulableTasks, energyProfile]);
+
+  // Get AI scheduling suggestions
+  const handleGetAISuggestion = async () => {
+    if (schedulableTasks.length === 0) return;
+
+    setIsLoadingAI(true);
+    try {
+      const tasks = schedulableTasks.map((t) => ({
+        title: t.title,
+        priority: t.priority,
+        energyCost: t.energyCost,
+      }));
+
+      const peakHours = energyProfile.peakHours.map(
+        (p) => `${p.start}:00-${p.end}:00`
+      );
+
+      const suggestion = await getSchedulingSuggestions(
+        tasks,
+        energyProfile.currentEnergy,
+        peakHours
+      );
+
+      setAiSuggestion(suggestion);
+    } catch (error) {
+      console.error("Failed to get AI suggestion:", error);
+      setAiSuggestion(
+        energyProfile.currentEnergy < 50
+          ? "Your energy is low. Focus on just 1-2 easy tasks, then take a break."
+          : "You have good energy! Tackle your most important task during your peak hours."
+      );
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
 
   const spoonViz = getSpoonVisualization(energyProfile);
   const recoverySuggestions = getEnergyRecoverySuggestions(
@@ -203,7 +243,6 @@ export default function EnergyScheduler({
               </div>
             </div>
           </div>
-
           {/* Settings Panel */}
           {showSettings && (
             <div className="p-6 border-b border-border bg-white/[0.02]">
@@ -287,7 +326,6 @@ export default function EnergyScheduler({
               </div>
             </div>
           )}
-
           {/* Schedule Results */}
           <div className="p-6">
             {schedulableTasks.length === 0 ? (
@@ -435,8 +473,48 @@ export default function EnergyScheduler({
                   )}
               </>
             )}
-          </div>
+          </div>{" "}
+          {/* AI Scheduling Suggestions */}
+          {schedulableTasks.length > 0 && (
+            <div className="p-6 border-t border-border bg-violet-500/5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-violet-400 flex items-center gap-2">
+                  <Sparkles size={14} />
+                  AI Coach Suggestions
+                </h3>
+                <button
+                  onClick={handleGetAISuggestion}
+                  disabled={isLoadingAI}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoadingAI ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={12} />
+                      Get AI Advice
+                    </>
+                  )}
+                </button>
+              </div>
 
+              {aiSuggestion ? (
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-violet-500/20">
+                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                    {aiSuggestion}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Click &quot;Get AI Advice&quot; for personalized scheduling
+                  suggestions based on your energy level and tasks.
+                </p>
+              )}
+            </div>
+          )}
           {/* Recovery Suggestions */}
           {spoonViz.percentRemaining < 50 && (
             <div className="p-6 border-t border-border bg-emerald-500/5">

@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { decomposeTask, type DecomposedTask } from "@/lib/ai-coach";
+import { decomposeTaskWithAI } from "@/lib/gemini-service";
 
 interface TaskDecomposerProps {
   taskTitle: string;
@@ -33,18 +34,34 @@ export default function TaskDecomposer({
   const [selectedSubtasks, setSelectedSubtasks] = useState<Set<number>>(
     new Set()
   );
+  const [useAI, setUseAI] = useState(true);
 
-  const handleDecompose = () => {
+  const handleDecompose = async () => {
     setIsGenerating(true);
 
-    // Simulate AI processing time
-    setTimeout(() => {
-      const result = decomposeTask(taskTitle);
+    try {
+      let result: DecomposedTask;
+
+      if (useAI) {
+        // Try AI-powered decomposition first
+        result = await decomposeTaskWithAI(taskTitle);
+      } else {
+        // Use local pattern matching
+        result = decomposeTask(taskTitle);
+      }
+
       setDecomposition(result);
       // Select all by default
       setSelectedSubtasks(new Set(result.subtasks.map((_, i) => i)));
+    } catch (error) {
+      console.error("Decomposition error:", error);
+      // Fallback to local decomposition
+      const result = decomposeTask(taskTitle);
+      setDecomposition(result);
+      setSelectedSubtasks(new Set(result.subtasks.map((_, i) => i)));
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const toggleSubtask = (index: number) => {
@@ -123,6 +140,7 @@ export default function TaskDecomposer({
 
         {/* Content */}
         <div className="p-6">
+          {" "}
           {!decomposition && !isGenerating && (
             <div className="text-center py-8">
               <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
@@ -131,10 +149,36 @@ export default function TaskDecomposer({
               <h3 className="text-lg font-medium text-foreground mb-2">
                 Ready to decompose?
               </h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
                 The Task Goblin will break this task into small, mechanical
                 actions that require minimal decision-making.
               </p>
+
+              {/* AI Toggle */}
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <button
+                  onClick={() => setUseAI(true)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    useAI
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : "bg-white/5 text-muted-foreground border border-white/10 hover:bg-white/10"
+                  }`}
+                >
+                  <Sparkles size={14} className="inline mr-1.5" />
+                  AI-Powered
+                </button>
+                <button
+                  onClick={() => setUseAI(false)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    !useAI
+                      ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                      : "bg-white/5 text-muted-foreground border border-white/10 hover:bg-white/10"
+                  }`}
+                >
+                  Templates
+                </button>
+              </div>
+
               <button
                 onClick={handleDecompose}
                 className="px-6 py-3 rounded-xl font-medium bg-violet-500 text-white hover:bg-violet-600 transition-colors flex items-center gap-2 mx-auto"
@@ -144,7 +188,6 @@ export default function TaskDecomposer({
               </button>
             </div>
           )}
-
           {isGenerating && (
             <div className="text-center py-12">
               <Loader2
@@ -156,7 +199,6 @@ export default function TaskDecomposer({
               </p>
             </div>
           )}
-
           {decomposition && !isGenerating && (
             <div className="space-y-4">
               {/* Summary */}
