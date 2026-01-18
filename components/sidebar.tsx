@@ -11,12 +11,14 @@ import {
   User,
   Zap,
   Sparkles,
+  Brain,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "emerald" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, color: "violet" },
   { href: "/pomodoro", label: "Pomodoro", icon: Clock, color: "sky" },
+  { href: "/ai", label: "AI Coach", icon: Brain, color: "rose" },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy, color: "amber" },
   { href: "/profile", label: "Profile", icon: User, color: "emerald" },
 ];
@@ -41,6 +43,11 @@ const colorClasses = {
     active: "bg-amber-500/20 border-amber-500/50 text-amber-400",
     hover: "hover:bg-amber-500/10 hover:text-amber-400",
     tooltip: "border-amber-500/30 text-amber-300",
+  },
+  rose: {
+    active: "bg-rose-500/20 border-rose-500/50 text-rose-400",
+    hover: "hover:bg-rose-500/10 hover:text-rose-400",
+    tooltip: "border-rose-500/30 text-rose-300",
   },
 };
 

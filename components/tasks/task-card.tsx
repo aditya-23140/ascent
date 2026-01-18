@@ -14,6 +14,7 @@ import {
   Trash2,
   Plus,
   Flag,
+  Wand2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import TaskDecomposer from "@/components/ai/task-decomposer";
 
 interface TaskCardProps {
   task: Task;
@@ -32,6 +34,7 @@ export default function TaskCard({ task }: TaskCardProps) {
   const [subTaskTitle, setSubTaskTitle] = useState("");
   const [subTaskMinutes, setSubTaskMinutes] = useState("30");
   const [expanded, setExpanded] = useState(false);
+  const [showDecomposer, setShowDecomposer] = useState(false);
 
   const handleCompleteTask = () => {
     completeTask(task.id);
@@ -39,6 +42,20 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   const handlePriorityChange = (newPriority: "low" | "medium" | "high") => {
     updateTask(task.id, { priority: newPriority });
+  };
+
+  const handleApplyDecomposedSubtasks = (
+    subtasks: { title: string; estimatedMinutes: number }[]
+  ) => {
+    subtasks.forEach((st) => {
+      addSubTask(task.id, {
+        id: `st_${crypto.randomUUID()}`,
+        title: st.title,
+        completed: false,
+        estimatedMinutes: st.estimatedMinutes,
+      });
+    });
+    setExpanded(true);
   };
 
   const handleAddSubTask = (e: React.FormEvent) => {
@@ -145,7 +162,6 @@ export default function TaskCard({ task }: TaskCardProps) {
           >
             {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
           </button>
-
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Title Row */}
@@ -281,18 +297,26 @@ export default function TaskCard({ task }: TaskCardProps) {
                 {task.description}
               </p>
             )}
-          </div>
-
+          </div>{" "}
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             {!task.completed && (
-              <button
-                onClick={handleCompleteTask}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm"
-              >
-                <CheckCircle2 size={16} />
-                Done
-              </button>
+              <>
+                <button
+                  onClick={() => setShowDecomposer(true)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 transition-colors"
+                  title="AI Task Breakdown"
+                >
+                  <Wand2 size={18} />
+                </button>
+                <button
+                  onClick={handleCompleteTask}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors text-sm"
+                >
+                  <CheckCircle2 size={16} />
+                  Done
+                </button>
+              </>
             )}
             <button
               onClick={() => deleteTask(task.id)}
@@ -354,7 +378,7 @@ export default function TaskCard({ task }: TaskCardProps) {
                       className="px-4 py-2 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors text-sm"
                     >
                       Add
-                    </button>
+                    </button>{" "}
                     <button
                       type="button"
                       onClick={() => setShowSubTaskForm(false)}
@@ -369,6 +393,15 @@ export default function TaskCard({ task }: TaskCardProps) {
           </div>
         )}
       </div>
+
+      {/* AI Task Decomposer Modal */}
+      {showDecomposer && (
+        <TaskDecomposer
+          taskTitle={task.title}
+          onApplySubtasks={handleApplyDecomposedSubtasks}
+          onClose={() => setShowDecomposer(false)}
+        />
+      )}
     </div>
   );
 }

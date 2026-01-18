@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/sidebar";
 import { AppProvider } from "@/context/app-context";
+import ClientLayout from "@/components/client-layout";
 
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
@@ -43,11 +44,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="font-sans antialiased">
-        {" "}
         <AppProvider>
           <div className="flex h-screen bg-background">
             <Sidebar />
-            <main className="flex-1 overflow-auto ml-14">{children}</main>
+            <main className="flex-1 overflow-auto ml-14">
+              <ClientLayout>{children}</ClientLayout>
+            </main>
           </div>
         </AppProvider>
       </body>
