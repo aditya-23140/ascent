@@ -43,17 +43,21 @@ export default function TaskCard({ task }: TaskCardProps) {
   const handlePriorityChange = (newPriority: "low" | "medium" | "high") => {
     updateTask(task.id, { priority: newPriority });
   };
-
   const handleApplyDecomposedSubtasks = (
     subtasks: { title: string; estimatedMinutes: number }[]
   ) => {
-    subtasks.forEach((st) => {
-      addSubTask(task.id, {
-        id: `st_${crypto.randomUUID()}`,
-        title: st.title,
-        completed: false,
-        estimatedMinutes: st.estimatedMinutes,
-      });
+    // Get current subtasks and add all new ones at once to avoid stale state issues
+    const currentSubtasks = task.subTasks || [];
+    const newSubtasks = subtasks.map((st) => ({
+      id: `st_${crypto.randomUUID()}`,
+      title: st.title,
+      completed: false,
+      estimatedMinutes: st.estimatedMinutes,
+    }));
+
+    // Update task with all subtasks at once
+    updateTask(task.id, {
+      subTasks: [...currentSubtasks, ...newSubtasks],
     });
     setExpanded(true);
   };

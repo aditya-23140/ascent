@@ -10,9 +10,18 @@ import {
   Check,
   Loader2,
   ChevronRight,
+  Minus,
+  RotateCcw,
 } from "lucide-react";
 import { decomposeTask, type DecomposedTask } from "@/lib/ai-coach";
 import { decomposeTaskWithAI } from "@/lib/gemini-service";
+
+interface EditableSubtask {
+  title: string;
+  estimatedMinutes: number;
+  energyCost: number;
+  originalMinutes: number; // Store original for reset
+}
 
 interface TaskDecomposerProps {
   taskTitle: string;
@@ -28,13 +37,14 @@ export default function TaskDecomposer({
   onClose,
 }: TaskDecomposerProps) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [decomposition, setDecomposition] = useState<DecomposedTask | null>(
-    null
+  const [editableSubtasks, setEditableSubtasks] = useState<EditableSubtask[]>(
+    []
   );
   const [selectedSubtasks, setSelectedSubtasks] = useState<Set<number>>(
     new Set()
   );
   const [useAI, setUseAI] = useState(true);
+  const [context, setContext] = useState("");
 
   const handleDecompose = async () => {
     setIsGenerating(true);
@@ -43,21 +53,31 @@ export default function TaskDecomposer({
       let result: DecomposedTask;
 
       if (useAI) {
-        // Try AI-powered decomposition first
-        result = await decomposeTaskWithAI(taskTitle);
+        // Try AI-powered decomposition with optional context
+        result = await decomposeTaskWithAI(taskTitle, context || undefined);
       } else {
         // Use local pattern matching
         result = decomposeTask(taskTitle);
       }
 
-      setDecomposition(result);
+      // Convert to editable subtasks
+      const editable = result.subtasks.map((st) => ({
+        ...st,
+        originalMinutes: st.estimatedMinutes,
+      }));
+
+      setEditableSubtasks(editable);
       // Select all by default
       setSelectedSubtasks(new Set(result.subtasks.map((_, i) => i)));
     } catch (error) {
       console.error("Decomposition error:", error);
       // Fallback to local decomposition
       const result = decomposeTask(taskTitle);
-      setDecomposition(result);
+      const editable = result.subtasks.map((st) => ({
+        ...st,
+        originalMinutes: st.estimatedMinutes,
+      }));
+      setEditableSubtasks(editable);
       setSelectedSubtasks(new Set(result.subtasks.map((_, i) => i)));
     } finally {
       setIsGenerating(false);
@@ -74,10 +94,44 @@ export default function TaskDecomposer({
     setSelectedSubtasks(newSelected);
   };
 
-  const handleApply = () => {
-    if (!decomposition) return;
+  const updateSubtaskTime = (index: number, delta: number) => {
+    setEditableSubtasks((prev) =>
+      prev.map((st, i) => {
+        if (i === index) {
+          const newTime = Math.max(1, st.estimatedMinutes + delta);
+          return { ...st, estimatedMinutes: newTime };
+        }
+        return st;
+      })
+    );
+  };
 
-    const selectedSubtaskData = decomposition.subtasks
+  const setSubtaskTime = (index: number, minutes: number) => {
+    setEditableSubtasks((prev) =>
+      prev.map((st, i) => {
+        if (i === index) {
+          return { ...st, estimatedMinutes: Math.max(1, minutes) };
+        }
+        return st;
+      })
+    );
+  };
+
+  const resetSubtaskTime = (index: number) => {
+    setEditableSubtasks((prev) =>
+      prev.map((st, i) => {
+        if (i === index) {
+          return { ...st, estimatedMinutes: st.originalMinutes };
+        }
+        return st;
+      })
+    );
+  };
+
+  const handleApply = () => {
+    if (editableSubtasks.length === 0) return;
+
+    const selectedSubtaskData = editableSubtasks
       .filter((_, i) => selectedSubtasks.has(i))
       .map((st) => ({
         title: st.title,
@@ -87,6 +141,15 @@ export default function TaskDecomposer({
     onApplySubtasks(selectedSubtaskData);
     onClose();
   };
+
+  // Calculate totals from editable subtasks
+  const totalMinutes = editableSubtasks
+    .filter((_, i) => selectedSubtasks.has(i))
+    .reduce((sum, st) => sum + st.estimatedMinutes, 0);
+
+  const totalEnergy = editableSubtasks
+    .filter((_, i) => selectedSubtasks.has(i))
+    .reduce((sum, st) => sum + st.energyCost, 0);
 
   const getEnergyCostColor = (cost: number) => {
     if (cost <= 1) return "text-emerald-400 bg-emerald-500/10";
@@ -130,19 +193,17 @@ export default function TaskDecomposer({
               </p>
             </div>
           </div>
-        </div>
-
+        </div>{" "}
         {/* Task Title */}
         <div className="px-6 py-4 bg-white/[0.02] border-b border-border">
           <p className="text-sm text-muted-foreground mb-1">Breaking down:</p>
           <p className="text-lg font-medium text-foreground">{taskTitle}</p>
         </div>
-
         {/* Content */}
         <div className="p-6">
           {" "}
-          {!decomposition && !isGenerating && (
-            <div className="text-center py-8">
+          {editableSubtasks.length === 0 && !isGenerating && (
+            <div className="text-center py-6">
               <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
                 <Wand2 size={32} className="text-violet-400" />
               </div>
@@ -150,9 +211,22 @@ export default function TaskDecomposer({
                 Ready to decompose?
               </h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-                The Task Goblin will break this task into small, mechanical
-                actions that require minimal decision-making.
+                The Task Goblin will break this task into small, actionable
+                steps tailored to your specific needs.
               </p>
+
+              {/* Context input for AI */}
+              {useAI && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    placeholder="Add context (e.g., 'for a college essay', 'beginner level')..."
+                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                  />
+                </div>
+              )}
 
               {/* AI Toggle */}
               <div className="flex items-center justify-center gap-3 mb-6">
@@ -187,7 +261,7 @@ export default function TaskDecomposer({
                 Break It Down
               </button>
             </div>
-          )}
+          )}{" "}
           {isGenerating && (
             <div className="text-center py-12">
               <Loader2
@@ -199,7 +273,7 @@ export default function TaskDecomposer({
               </p>
             </div>
           )}
-          {decomposition && !isGenerating && (
+          {editableSubtasks.length > 0 && !isGenerating && (
             <div className="space-y-4">
               {/* Summary */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
@@ -209,7 +283,7 @@ export default function TaskDecomposer({
                     <span className="text-muted-foreground">
                       Total:{" "}
                       <span className="text-foreground font-medium">
-                        {decomposition.totalEstimatedMinutes} min
+                        {totalMinutes} min
                       </span>
                     </span>
                   </div>
@@ -218,7 +292,7 @@ export default function TaskDecomposer({
                     <span className="text-muted-foreground">
                       Energy:{" "}
                       <span className="text-foreground font-medium">
-                        {decomposition.totalEnergyCost} pts
+                        {totalEnergy} pts
                       </span>
                     </span>
                   </div>
@@ -226,32 +300,31 @@ export default function TaskDecomposer({
                 <span className="text-xs text-emerald-400 font-medium">
                   {selectedSubtasks.size} selected
                 </span>
-              </div>
-
-              {/* Subtasks */}
+              </div>{" "}
+              {/* Subtasks with editable time */}
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {decomposition.subtasks.map((subtask, index) => (
+                {editableSubtasks.map((subtask, index) => (
                   <div
                     key={index}
-                    onClick={() => toggleSubtask(index)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    className={`p-3 rounded-xl border transition-all ${
                       selectedSubtasks.has(index)
                         ? "bg-emerald-500/10 border-emerald-500/30"
                         : "bg-white/[0.02] border-white/10 hover:border-white/20"
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div
+                      <button
+                        onClick={() => toggleSubtask(index)}
                         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                           selectedSubtasks.has(index)
                             ? "bg-emerald-500 border-emerald-500"
-                            : "border-white/20"
+                            : "border-white/20 hover:border-white/40"
                         }`}
                       >
                         {selectedSubtasks.has(index) && (
                           <Check size={12} className="text-white" />
                         )}
-                      </div>
+                      </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <ChevronRight
@@ -262,11 +335,7 @@ export default function TaskDecomposer({
                             {subtask.title}
                           </p>
                         </div>
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock size={10} />
-                            {subtask.estimatedMinutes} min
-                          </span>
+                        <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full ${getEnergyCostColor(
                               subtask.energyCost
@@ -274,17 +343,73 @@ export default function TaskDecomposer({
                           >
                             {getEnergyCostLabel(subtask.energyCost)}
                           </span>
+
+                          {/* Editable time controls */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateSubtaskTime(index, -5);
+                              }}
+                              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10">
+                              <input
+                                type="number"
+                                value={subtask.estimatedMinutes}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setSubtaskTime(
+                                    index,
+                                    parseInt(e.target.value) || 1
+                                  );
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-10 bg-transparent text-xs text-foreground text-center focus:outline-none"
+                                min={1}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                min
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateSubtaskTime(index, 5);
+                              }}
+                              className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Plus size={12} />
+                            </button>
+                            {subtask.estimatedMinutes !==
+                              subtask.originalMinutes && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  resetSubtaskTime(index);
+                                }}
+                                className="w-6 h-6 rounded-md bg-amber-500/10 hover:bg-amber-500/20 flex items-center justify-center text-amber-400 transition-colors"
+                                title="Reset to original"
+                              >
+                                <RotateCcw size={10} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-
               {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={handleDecompose}
+                  onClick={() => {
+                    setEditableSubtasks([]);
+                    setSelectedSubtasks(new Set());
+                  }}
                   className="flex-1 px-4 py-3 rounded-xl font-medium bg-white/5 text-foreground hover:bg-white/10 border border-white/10 transition-colors flex items-center justify-center gap-2"
                 >
                   <Wand2 size={16} />

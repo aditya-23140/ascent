@@ -4,7 +4,6 @@
 import {
   COACH_SYSTEM_PROMPT,
   generateCoachingPrompt,
-  generateDecompositionPrompt,
   type EmotionalState,
   type DecomposedTask,
   getFallbackResponse,
@@ -43,10 +42,10 @@ export const AI_CONFIG = {
     maxOutputTokens: 500, // Keep responses concise for ADHD
   },
   decomposer: {
-    temperature: 0.3, // Lower for more consistent, structured output
+    temperature: 0.4, // Slightly higher for more varied outputs
     topP: 0.85,
     topK: 30,
-    maxOutputTokens: 1000,
+    maxOutputTokens: 2000, // Increased to prevent truncation
   },
   scheduler: {
     temperature: 0.2, // Very low for analytical tasks
@@ -179,31 +178,21 @@ export async function decomposeTaskWithAI(
   context?: string
 ): Promise<DecomposedTask> {
   try {
-    const prompt = generateDecompositionPrompt(taskTitle, context);
+    // Concise prompt to reduce token usage
+    const userPrompt = `Break down this task into 5-6 actionable subtasks:
 
-    // Use a custom system prompt for decomposition
-    const decompositionSystemPrompt = `You are an ADHD task decomposition specialist. Your job is to break down tasks into small, concrete, mechanical actions that minimize cognitive load and activation energy.
+TASK: "${taskTitle}"${context ? ` (${context})` : ""}
 
-RULES:
-1. Each subtask must be completable in 15 minutes or less
-2. Each subtask must have a clear, unambiguous "done" state
-3. Subtasks should require minimal decision-making
-4. Order subtasks from easiest to hardest (activation energy ramp-up)
-5. Use specific, action-oriented language (not vague)
-6. Include estimated time and energy cost for each
+Return ONLY a JSON array with short, specific actions. Keep titles under 50 characters.
+Example format: [{"title":"Open browser","estimatedMinutes":2,"energyCost":1}]`;
 
-ENERGY COST SCALE:
-1 = Trivial (almost no effort)
-2 = Easy (minimal effort)
-3 = Moderate (some focus needed)
-4 = Challenging (significant focus)
-5 = Exhausting (maximum effort)
-
-ALWAYS respond with ONLY valid JSON in this exact format:
-[
-  {"title": "Specific action", "estimatedMinutes": 5, "energyCost": 1},
-  {"title": "Another action", "estimatedMinutes": 10, "energyCost": 2}
-]`;
+    // Simplified system prompt
+    const decompositionSystemPrompt = `You break tasks into small steps for ADHD users. Rules:
+- 5-6 subtasks max, short titles (under 50 chars)
+- Vary times: quick (2-5min), medium (8-15min), longer (15-20min)
+- Start with easiest tasks first
+- energyCost: 1=trivial, 2=easy, 3=moderate, 4=hard, 5=intense
+- Return ONLY valid JSON array, no markdown, no extra text`;
 
     const key = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!key) {
@@ -216,7 +205,7 @@ ALWAYS respond with ONLY valid JSON in this exact format:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         systemInstruction: {
           parts: [{ text: decompositionSystemPrompt }],
         },
@@ -225,29 +214,89 @@ ALWAYS respond with ONLY valid JSON in this exact format:
           topP: AI_CONFIG.decomposer.topP,
           topK: AI_CONFIG.decomposer.topK,
           maxOutputTokens: AI_CONFIG.decomposer.maxOutputTokens,
-          responseMimeType: "application/json",
         },
       }),
     });
 
     if (!response.ok) {
-      throw new Error("API request failed");
+      const errorData = await response.json();
+      console.error("Gemini API error:", errorData);
+      throw new Error(errorData.error?.message || "API request failed");
     }
 
     const data: GeminiResponse = await response.json();
 
     if (!data.candidates || data.candidates.length === 0) {
-      throw new Error("No response");
+      throw new Error("No response from AI");
     }
-
     const jsonText = data.candidates[0].content.parts[0].text;
 
+    if (!jsonText || jsonText.trim() === "") {
+      throw new Error("Empty response from AI");
+    }
+
+    // Clean the response - remove markdown code blocks if present
+    let cleanedJson = jsonText.trim();
+
+    // Remove markdown code blocks
+    if (cleanedJson.startsWith("```json")) {
+      cleanedJson = cleanedJson.slice(7);
+    } else if (cleanedJson.startsWith("```")) {
+      cleanedJson = cleanedJson.slice(3);
+    }
+    if (cleanedJson.endsWith("```")) {
+      cleanedJson = cleanedJson.slice(0, -3);
+    }
+    cleanedJson = cleanedJson.trim();
+
+    // Try to extract JSON array if there's extra text
+    const jsonArrayMatch = cleanedJson.match(/\[[\s\S]*\]/);
+    if (jsonArrayMatch) {
+      cleanedJson = jsonArrayMatch[0];
+    }
+
+    // Handle truncated JSON - try to fix incomplete arrays
+    if (!cleanedJson.endsWith("]")) {
+      console.warn("JSON appears truncated, attempting to fix...");
+      // Find the last complete object
+      const lastCompleteObjMatch = cleanedJson.match(
+        /^([\s\S]*\})\s*,?\s*[\s\S]*$/
+      );
+      if (lastCompleteObjMatch) {
+        cleanedJson = lastCompleteObjMatch[1] + "]";
+      } else {
+        // Can't salvage it, fall back
+        throw new Error("Truncated JSON response");
+      }
+    }
+
     // Parse the JSON response
-    const subtasks = JSON.parse(jsonText) as {
+    let subtasks: {
       title: string;
       estimatedMinutes: number;
       energyCost: number;
     }[];
+
+    try {
+      subtasks = JSON.parse(cleanedJson);
+    } catch {
+      console.error("JSON parse error. Raw response:", jsonText);
+      console.error("Cleaned response:", cleanedJson);
+      throw new Error("Failed to parse AI response as JSON");
+    }
+
+    // Validate the structure
+    if (!Array.isArray(subtasks) || subtasks.length === 0) {
+      throw new Error("Invalid subtasks format from AI");
+    }
+
+    // Ensure each subtask has required fields with defaults
+    subtasks = subtasks.map((st, index) => ({
+      title: st.title || `Step ${index + 1}`,
+      estimatedMinutes:
+        typeof st.estimatedMinutes === "number" ? st.estimatedMinutes : 10,
+      energyCost: typeof st.energyCost === "number" ? st.energyCost : 2,
+    }));
 
     const totalMinutes = subtasks.reduce(
       (sum, st) => sum + st.estimatedMinutes,
