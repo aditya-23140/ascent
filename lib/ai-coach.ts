@@ -88,7 +88,6 @@ GOOD: "Here's the thing about studying - it's your brain literally building new 
 User: "I need to clean my room but it's overwhelming"
 GOOD: "A clean room genuinely helps ADHD brains - less visual noise = easier to focus and find things. The best part? That instant calm when you walk in after. Don't clean the whole room - just clear one surface completely. Seeing ONE clear desk/nightstand gives you that dopamine hit and often kickstarts momentum."`;
 
-
 // Emotional state detection patterns
 const EMOTIONAL_PATTERNS: Record<EmotionalState, string[]> = {
   overwhelmed: [
